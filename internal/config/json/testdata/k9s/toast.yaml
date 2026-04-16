@@ -8,7 +8,7 @@ k9s:
   skipLatestRevCheck: false
   disablePodCounting: false
   shellPods:
-    image: busybox:1.35.0
+    image: busybox:1.37.0
     namespace: default
     limits:
       cpu: 100m
@@ -23,6 +23,8 @@ k9s:
     buffer: 5000
     sinceSeconds: -1
     textWrap: false
+    disableAutoscroll: false
+    columnLock: false
     showTime: false
   thresholds:
     cpu:

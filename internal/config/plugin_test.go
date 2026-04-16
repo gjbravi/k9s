@@ -5,85 +5,242 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/adrg/xdg"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-var pluginYmlTestData = Plugin{
-	Scopes:      []string{"po", "dp"},
-	Args:        []string{"-n", "$NAMESPACE", "-boolean"},
-	ShortCut:    "shift-s",
-	Description: "blee",
-	Command:     "duh",
-	Confirm:     true,
-	Background:  false,
-}
-
-var test1YmlTestData = Plugin{
-	Scopes:          []string{"po", "dp"},
-	Args:            []string{"-n", "$NAMESPACE", "-boolean"},
-	ShortCut:        "shift-s",
-	Description:     "blee",
-	Command:         "duh",
-	Confirm:         true,
-	Background:      false,
-	OverwriteOutput: true,
-}
-
-var test2YmlTestData = Plugin{
-	Scopes:          []string{"svc", "ing"},
-	Args:            []string{"-n", "$NAMESPACE", "-oyaml"},
-	ShortCut:        "shift-r",
-	Description:     "bla",
-	Command:         "duha",
-	Confirm:         false,
-	Background:      true,
-	OverwriteOutput: false,
-}
-
 func TestPluginLoad(t *testing.T) {
-	AppPluginsFile = "/tmp/k9s-test/fred.yaml"
-	os.Setenv("XDG_DATA_HOME", "/tmp/k9s-test")
-	xdg.Reload()
+	uu := map[string]struct {
+		path string
+		err  string
+		ee   Plugins
+	}{
+		"snippet": {
+			path: "testdata/plugins/dir/snippet.1.yaml",
+			ee: Plugins{
+				Plugins: plugins{
+					"snippet.1": Plugin{
+						Scopes:          []string{"po", "dp"},
+						Args:            []string{"-n", "$NAMESPACE", "-boolean"},
+						ShortCut:        "shift-s",
+						Description:     "blee",
+						Command:         "duh",
+						Confirm:         boolPtr(true),
+						OverwriteOutput: true,
+					},
+				},
+			},
+		},
 
-	p := NewPlugins()
-	assert.NoError(t, p.Load("testdata/plugins.yaml"))
+		"multi-snippets": {
+			path: "testdata/plugins/dir/snippet.multi.yaml",
+			ee: Plugins{
+				Plugins: plugins{
+					"crapola": Plugin{
+						ShortCut:    "Shift-1",
+						Command:     "crapola",
+						Description: "crapola",
+						Scopes:      []string{"pods"},
+					},
+					"bozo": Plugin{
+						ShortCut:    "Shift-2",
+						Description: "bozo",
+						Command:     "bozo",
+						Scopes:      []string{"pods", "svc"},
+					},
+				},
+			},
+		},
 
-	assert.Equal(t, 1, len(p.Plugins))
-	k, ok := p.Plugins["blah"]
-	assert.True(t, ok)
-	assert.ObjectsAreEqual(pluginYmlTestData, k)
+		"full": {
+			path: "testdata/plugins/plugins.yaml",
+			ee: Plugins{
+				Plugins: plugins{
+					"blah": Plugin{
+						Scopes:      []string{"po", "dp"},
+						Args:        []string{"-n", "$NAMESPACE", "-boolean"},
+						ShortCut:    "shift-s",
+						Description: "blee",
+						Command:     "duh",
+						Confirm:     boolPtr(true),
+					},
+				},
+			},
+		},
+
+		"toast-no-file": {
+			path: "testdata/plugins/plugins-bozo.yaml",
+			ee:   NewPlugins(),
+		},
+
+		"toast-invalid": {
+			path: "testdata/plugins/plugins-toast.yaml",
+			ee:   NewPlugins(),
+			err:  "plugin validation failed for testdata/plugins/plugins-toast.yaml: scopes is required\nAdditional property plugins is not allowed\ncommand is required\ndescription is required\nscopes is required\nshortCut is required\ncommand is required\ndescription is required\nscopes is required\nshortCut is required",
+		},
+	}
+
+	for k, u := range uu {
+		t.Run(k, func(t *testing.T) {
+			p := NewPlugins()
+			err := p.Load(u.path, false)
+			if err != nil {
+				assert.Equal(t, u.err, err.Error())
+			}
+			assert.Equal(t, u.ee, p)
+		})
+	}
 }
 
 func TestSinglePluginFileLoad(t *testing.T) {
+	e := Plugin{
+		Scopes:      []string{"po", "dp"},
+		Args:        []string{"-n", "$NAMESPACE", "-boolean"},
+		ShortCut:    "shift-s",
+		Description: "blee",
+		Command:     "duh",
+		Confirm:     boolPtr(true),
+	}
+
 	p := NewPlugins()
-	assert.NoError(t, p.load("testdata/plugins.yaml"))
-	assert.NoError(t, p.loadPluginDir("/random/dir/not/exist"))
+	require.NoError(t, p.load("testdata/plugins/plugins.yaml"))
+	require.NoError(t, p.loadDir("/random/dir/not/exist"))
 
-	assert.Equal(t, 1, len(p.Plugins))
-	k, ok := p.Plugins["blah"]
+	assert.Len(t, p.Plugins, 1)
+	v, ok := p.Plugins["blah"]
+
 	assert.True(t, ok)
-
-	assert.ObjectsAreEqual(pluginYmlTestData, k)
+	assert.ObjectsAreEqual(e, v)
 }
 
 func TestMultiplePluginFilesLoad(t *testing.T) {
+	uu := map[string]struct {
+		path string
+		dir  string
+		ee   Plugins
+	}{
+		"empty": {
+			path: "testdata/plugins/plugins.yaml",
+			dir:  "testdata/plugins/dir",
+			ee: Plugins{
+				Plugins: plugins{
+					"blah": {
+						Scopes:      []string{"po", "dp"},
+						Args:        []string{"-n", "$NAMESPACE", "-boolean"},
+						ShortCut:    "shift-s",
+						Description: "blee",
+						Command:     "duh",
+						Confirm:     boolPtr(true),
+					},
+					"snippet.1": {
+						ShortCut:        "shift-s",
+						Command:         "duh",
+						Scopes:          []string{"po", "dp"},
+						Args:            []string{"-n", "$NAMESPACE", "-boolean"},
+						Description:     "blee",
+						Confirm:         boolPtr(true),
+						OverwriteOutput: true,
+					},
+					"snippet.2": {
+						Scopes:      []string{"svc", "ing"},
+						Args:        []string{"-n", "$NAMESPACE", "-oyaml"},
+						ShortCut:    "shift-r",
+						Description: "bla",
+						Command:     "duha",
+						Confirm:     boolPtr(false),
+						Background:  true,
+					},
+					"crapola": {
+						Scopes:      []string{"pods"},
+						Command:     "crapola",
+						Description: "crapola",
+						ShortCut:    "Shift-1",
+					},
+					"bozo": {
+						Scopes:      []string{"pods", "svc"},
+						Command:     "bozo",
+						Description: "bozo",
+						ShortCut:    "Shift-2",
+					},
+				},
+			},
+		},
+	}
+
+	for k, u := range uu {
+		t.Run(k, func(t *testing.T) {
+			p := NewPlugins()
+			require.NoError(t, p.load(u.path))
+			require.NoError(t, p.loadDir(u.dir))
+			assert.Equal(t, u.ee, p)
+		})
+	}
+}
+
+func TestPluginLoadSymlink(t *testing.T) {
+	tmp := t.TempDir()
+
+	linkFile := filepath.Join(tmp, "plugins-symlink.yaml")
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Symlink(filepath.Join(wd, "testdata", "plugins", "plugins.yaml"), linkFile))
+
+	linkDir := filepath.Join(tmp, "plugins-dir-symlink")
+	require.NoError(t, os.Symlink(filepath.Join(wd, "testdata", "plugins", "dir"), linkDir))
+
+	// Add a symlink with an infinite loop
+	loopDir := filepath.Join(tmp, "loop")
+	require.NoError(t, os.Mkdir(loopDir, 0o755))
+	require.NoError(t, os.Symlink(loopDir, filepath.Join(loopDir, "self")))
+
 	p := NewPlugins()
-	assert.NoError(t, p.load("testdata/plugins.yaml"))
-	assert.NoError(t, p.loadPluginDir("testdata/plugins"))
+	require.NoError(t, p.loadDir(tmp))
 
-	testPlugins := map[string]Plugin{
-		"blah":  pluginYmlTestData,
-		"test1": test1YmlTestData,
-		"test2": test2YmlTestData,
+	ee := Plugins{
+		Plugins: plugins{
+			"blah": Plugin{
+				Scopes:      []string{"po", "dp"},
+				Args:        []string{"-n", "$NAMESPACE", "-boolean"},
+				ShortCut:    "shift-s",
+				Description: "blee",
+				Command:     "duh",
+				Confirm:     boolPtr(true),
+			},
+			"snippet.1": {
+				ShortCut:        "shift-s",
+				Command:         "duh",
+				Scopes:          []string{"po", "dp"},
+				Args:            []string{"-n", "$NAMESPACE", "-boolean"},
+				Description:     "blee",
+				Confirm:         boolPtr(true),
+				OverwriteOutput: true,
+			},
+			"snippet.2": {
+				Scopes:      []string{"svc", "ing"},
+				Args:        []string{"-n", "$NAMESPACE", "-oyaml"},
+				ShortCut:    "shift-r",
+				Description: "bla",
+				Command:     "duha",
+				Confirm:     boolPtr(false),
+				Background:  true,
+			},
+			"crapola": {
+				Scopes:      []string{"pods"},
+				Command:     "crapola",
+				Description: "crapola",
+				ShortCut:    "Shift-1",
+			},
+			"bozo": {
+				Scopes:      []string{"pods", "svc"},
+				Command:     "bozo",
+				Description: "bozo",
+				ShortCut:    "Shift-2",
+			},
+		},
 	}
 
-	assert.Equal(t, len(testPlugins), len(p.Plugins))
-	for name, expectedPlugin := range testPlugins {
-		k, ok := p.Plugins[name]
-		assert.True(t, ok)
-		assert.ObjectsAreEqual(expectedPlugin, k)
-	}
+	assert.Equal(t, ee, p)
 }

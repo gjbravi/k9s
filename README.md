@@ -22,9 +22,7 @@ Your donations will go a long way in keeping our servers lights on and beers in 
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/derailed/k9s?)](https://goreportcard.com/report/github.com/derailed/k9s)
 [![golangci badge](https://github.com/golangci/golangci-web/blob/master/src/assets/images/badge_a_plus_flat.svg)](https://golangci.com/r/github.com/derailed/k9s)
-[![codebeat badge](https://codebeat.co/badges/89e5a80e-dfe8-4426-acf6-6be781e0a12e)](https://codebeat.co/projects/github-com-derailed-k9s-master)
-[![Build Status](https://api.travis-ci.com/derailed/k9s.svg?branch=master)](https://travis-ci.com/derailed/k9s)
-[![Docker Repository on Quay](https://quay.io/repository/derailed/k9s/status "Docker Repository on Quay")](https://quay.io/repository/derailed/k9s)
+[![Docker Pulls](https://img.shields.io/docker/pulls/derailed/k9s.svg?maxAge=604800)](https://hub.docker.com/r/derailed/k9s/)
 [![release](https://img.shields.io/github/release-pre/derailed/k9s.svg)](https://github.com/derailed/k9s/releases)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/mum4k/termdash/blob/master/LICENSE)
 [![Releases](https://img.shields.io/github/downloads/derailed/k9s/total.svg)](https://github.com/derailed/k9s/releases)
@@ -44,6 +42,8 @@ Your donations will go a long way in keeping our servers lights on and beers in 
 
 ## Demo Videos/Recordings
 
+* [K9s v0.40.0 -Column Blow- Sneak peek](https://youtu.be/iy6RDozAM4A)
+* [K9s v0.31.0 Configs+Sneak peek](https://youtu.be/X3444KfjguE)
 * [K9s v0.30.0 Sneak peek](https://youtu.be/mVBc1XneRJ4)
 * [Vulnerability Scans](https://youtu.be/ULkl0MsaidU)
 * [K9s v0.29.0](https://youtu.be/oiU3wmoAkBo)
@@ -64,12 +64,16 @@ Your donations will go a long way in keeping our servers lights on and beers in 
 
 Please refer to our [K9s documentation](https://k9scli.io) site for installation, usage, customization and tips.
 
+---
+
 ## Slack Channel
 
 Wanna discuss K9s features with your fellow `K9sers` or simply show your support for this tool?
 
-* Channel: [K9ersSlack](https://k9sers.slack.com/)
-* Invite: [K9slackers Invite](https://join.slack.com/t/k9sers/shared_invite/enQtOTA5MDEyNzI5MTU0LWQ1ZGI3MzliYzZhZWEyNzYxYzA3NjE0YTk1YmFmNzViZjIyNzhkZGI0MmJjYzhlNjdlMGJhYzE2ZGU1NjkyNTM)
+* Channel: [K9sersSlack](https://k9sers.slack.com/)
+* Invite: [K9slackers Invite](https://join.slack.com/t/k9sers/shared_invite/zt-3360a389v-ElLHrb0Dp1kAXqYUItSAFA)
+
+---
 
 ## Installation
 
@@ -115,7 +119,13 @@ Binaries for Linux, Windows and Mac are available as tarballs in the [release pa
 * On Ubuntu
 
   ```shell
-  wget https://github.com/derailed/k9s/releases/download/v0.32.7/k9s_linux_amd64.deb && apt install ./k9s_linux_amd64.deb && rm k9s_linux_amd64.deb
+  wget https://github.com/derailed/k9s/releases/latest/download/k9s_linux_amd64.deb && sudo apt install ./k9s_linux_amd64.deb && rm k9s_linux_amd64.deb
+  ```
+
+* On Fedora (42+)
+
+  ```shell
+  dnf install k9s
   ```
 
 * Via [Winget](https://github.com/microsoft/winget-cli) for Windows
@@ -155,6 +165,12 @@ Binaries for Linux, Windows and Mac are available as tarballs in the [release pa
   pkgx k9s
   ```
 
+* Via [gah](https://github.com/marverix/gah) for Linux and macOS
+
+  ```shell
+  gah install k9s
+  ```
+
 * Via [Webi](https://webinstall.dev) for Windows
 
   ```shell
@@ -190,13 +206,13 @@ Binaries for Linux, Windows and Mac are available as tarballs in the [release pa
   You can run k9s as a Docker container by mounting your `KUBECONFIG`:
 
   ```shell
-  docker run --rm -it -v $KUBECONFIG:/root/.kube/config quay.io/derailed/k9s
+  docker run --rm -it -v $KUBECONFIG:/root/.kube/config derailed/k9s
   ```
 
   For default path it would be:
 
   ```shell
-  docker run --rm -it -v ~/.kube/config:/root/.kube/config quay.io/derailed/k9s
+  docker run --rm -it -v ~/.kube/config:/root/.kube/config derailed/k9s
   ```
 
 ### Building your own Docker image
@@ -358,16 +374,58 @@ K9s uses aliases to navigate most K8s resources.
 | Filter resource view by labels                                                  | `/`-l label-selector⏎         |                                                                        |
 | Fuzzy find a resource given a filter                                            | `/`-f filter⏎                 |                                                                        |
 | Bails out of view/command/filter mode                                           | `<esc>`                       |                                                                        |
-| Key mapping to describe, view, edit, view logs,...                              | `d`,`v`, `e`, `l`,...         |                                                                        |
 | To view and switch to another Kubernetes context (Pod view)                     | `:`ctx⏎                       |                                                                        |
 | To view and switch directly to another Kubernetes context (Last used view)      | `:`ctx context-name⏎          |                                                                        |
 | To view and switch to another Kubernetes namespace                              | `:`ns⏎                        |                                                                        |
+| To switch back to the last active command (like how "cd -" works)               | `-`                           | Navigation that adds breadcrumbs to the bottom are not commands        |
+| To go back and forward through the command history                              | back: `[`, forward: `]`       | Same as above                                                          |
 | To view all saved resources                                                     | `:`screendump or sd⏎          |                                                                        |
 | To delete a resource (TAB and ENTER to confirm)                                 | `ctrl-d`                      |                                                                        |
 | To kill a resource (no confirmation dialog, equivalent to kubectl delete --now) | `ctrl-k`                      |                                                                        |
 | Launch pulses view                                                              | `:`pulses or pu⏎              |                                                                        |
-| Launch XRay view                                                                | `:`xray RESOURCE [NAMESPACE]⏎ | RESOURCE can be one of po, svc, dp, rs, sts, ds, NAMESPACE is optional |
-| Launch Popeye view                                                              | `:`popeye or pop⏎             | See [popeye](#popeye)                                                  |
+| Launch XRay view                                                                | `:`xray RESOURCE [NAMESPACE]⏎  | RESOURCE can be one of po, svc, dp, rs, sts, ds, NAMESPACE is optional |
+| Launch Popeye view                                                              | `:`popeye or pop⏎              | See [popeye](#popeye)                                                  |
+| Mark resource                                                                   | `space`                        |                                                                        |
+| Mark range of resources                                                         | `ctrl-space`                   |                                                                        |
+| Clear all marks                                                                 | `ctrl-\`                       |                                                                        |
+| Save resources to file                                                          | `ctrl-s`                       |                                                                        |
+| Toggle faults/error display                                                     | `ctrl-z`                       |                                                                        |
+| Toggle wide columns                                                             | `ctrl-w`                       |                                                                        |
+| Toggle header                                                                   | `ctrl-e`                       |                                                                        |
+| Toggle breadcrumbs                                                              | `ctrl-g`                       |                                                                        |
+| Move selected column left                                                       | `shift-left arrow`             |                                                                        |
+| Move selected column right                                                      | `shift-right arrow`            |                                                                        |
+| Sort by selected column                                                         | `shift-o`                      |                                                                        |
+| Sort by Name                                                                    | `shift-n`                      |                                                                        |
+| Sort by Age                                                                     | `shift-a`                      |                                                                        |
+| Sort by Namespace                                                               | `shift-p`                      | Only when viewing all namespaces                                       |
+| Sort by Status                                                                  | `shift-s`                      |                                                                        |
+| Copy resource name                                                              | `c`                            |                                                                        |
+| Copy namespace                                                                  | `n`                            |                                                                        |
+| View YAML                                                                       | `y`                            |                                                                        |
+| View logs                                                                       | `l`                            | Resource specific                                                      |
+| View previous logs                                                              | `p`                            | Resource specific                                                      |
+| Shell into container                                                            | `s`                            | Pods only                                                              |
+| Attach to container                                                             | `a`                            | Pods only                                                              |
+| Describe resource                                                               | `d`                            |                                                                        |
+| Edit resource                                                                   | `e`                            | Not available in read-only mode                                        |
+| Show port-forwards                                                              | `f`                            | Pods/Services/Containers                                               |
+| Port forward                                                                    | `shift-f`                      | Pods/Services/Containers                                               |
+| Warp to namespace                                                               | `w`                            | When namespace column is available                                     |
+| Jump to owner                                                                   | `shift-j`                      | When resource has an owner                                             |
+| Use/switch namespace                                                            | `u`                            | Namespace view                                                         |
+| UsedBy (show resources using this)                                              | `u`                            | ServiceAccounts/PVCs/Secrets/ConfigMaps                                |
+| Benchmark (run/stop)                                                            | `b`                            | Services/Port-forwards                                                 |
+| Toggle text wrap                                                                | `w`                            | Log view                                                               |
+| Toggle timestamp                                                                | `t`                            | Log view                                                               |
+| Toggle fullscreen                                                               | `f`                            | Log/YAML/Details view                                                  |
+| Refresh/reload view                                                             | `ctrl-r`                       |                                                                        |
+| Trigger (CronJob)                                                               | `t`                            | CronJob view                                                           |
+| Cordon/Uncordon node                                                            | `u`                            | Node view                                                              |
+| Drain node                                                                      | `r`                            | Node view                                                              |
+| Restart resource                                                                | `r`                            | Deployments/DaemonSets/StatefulSets                                    |
+| Rollback resource                                                               | `ctrl-l`                       | ReplicaSets                                                            |
+| View ReplicaSets                                                                | `z`                            | Deployment view                                                        |
 
 ---
 
@@ -383,20 +441,42 @@ K9s uses aliases to navigate most K8s resources.
 
 You can now override the context portForward default address configuration by setting an env variable that can override all clusters portForward local address using `K9S_DEFAULT_PF_ADDRESS=a.b.c.d`
 
+
+Clipboard behavior can also be controlled via environment variables:
+
+- `K9S_CLIPBOARD=auto|native|osc52` (default `auto`)
+  - `auto`: try native clipboard utilities first, then fall back to OSC52 when available.
+  - `native`: only use native clipboard utilities (xclip/xsel/wl-clipboard/etc).
+  - `osc52`: force OSC52 clipboard writes.
+- `K9S_OSC52_MAX=<encoded-bytes>` sets the maximum allowed OSC52 payload size before k9s rejects the copy operation. Default is `74994`.
+
   ```yaml
   # $XDG_CONFIG_HOME/k9s/config.yaml
   k9s:
     # Enable periodic refresh of resource browser windows. Default false
     liveViewAutoRefresh: false
+    # !!New!! v0.50.8...
+    # Extends the list of supported GPU vendors. The key is the vendor name, the value must correspond to k8s resource driver designation.
+    # Default known GPU vendors:
+    # nvidia: nvidia.com/gpu
+	  # nvidia-shared: nvidia.com/gpu.shared
+	  # amd: amd.com/gpu
+	  # intel: gpu.intel.com/i915
+    gpuVendors:
+      bozo: bozo/gpu  # extends the gpu vendor and add "bozo"
     # The path to screen dump. Default: '%temp_dir%/k9s-screens-%username%' (k9s info)
     screenDumpDir: /tmp/dumps
-    # Represents ui poll intervals. Default 2secs
+    # Represents ui poll intervals in seconds. Default 2.0 secs. Minimum value is 2.0 - values below will be capped to the minimum.
     refreshRate: 2
+    # Overrides the default k8s api server requests timeout. Defaults 120s
+    apiServerTimeout: 15s
     # Number of retries once the connection to the api-server is lost. Default 15.
     maxConnRetry: 5
     # Indicates whether modification commands like delete/kill/edit are disabled. Default is false
     readOnly: false
-    # Toggles whether k9s should exit when CTRL-C is pressed. When set to true, you will need to exist k9s via the :quit command. Default is false.
+    # This setting allows users to specify the default view, but it is not set by default.
+    defaultView: ""
+    # Toggles whether k9s should exit when CTRL-C is pressed. When set to true, you will need to exit k9s via the :quit command. Default is false.
     noExitOnCtrlC: false
     #UI settings
     ui:
@@ -408,16 +488,23 @@ You can now override the context portForward default address configuration by se
       logoless: false
       # Set to true to hide K9s crumbs. Default false
       crumbsless: false
+      # Set to true to suppress the K9s splash screen on start. Default false. Note that for larger clusters or higher latency connections, there may be no resources visible initially until local caches have finished populating.
+      splashless: false
+      # Toggles icons display as not all terminal support these chars. Default: true
       noIcons: false
       # Toggles reactive UI. This option provide for watching on disk artifacts changes and update the UI live Defaults to false.
       reactive: false
-      # By default all contexts wil use the dracula skin unless explicitly overridden in the context config file.
-      skin: dracula # => assumes the file skins/dracula.yaml is present in the  $XDG_DATA_HOME/k9s/skins directory
+      # By default all contexts will use the dracula skin unless explicitly overridden in the context config file.
+      skin: dracula # => assumes the file skins/dracula.yaml is present in the  $XDG_DATA_HOME/k9s/skins directory. Can be overriden with K9S_SKIN.
+      # Convert dark skins to light, or vice versa, preserving hue. Default: false
+      invert: false
       # Allows to set certain views default fullscreen mode. (yaml, helm history, describe, value_extender, details, logs) Default false
       defaultsToFullScreen: false
+      # Show full resource GVR (Group/Version/Resource) vs just R. Default: false.
+      useFullGVRTitle: false
     # Toggles icons display as not all terminal support these chars.
     noIcons: false
-    # Toggles whether k9s should check for the latest revision from the Github repository releases. Default is false.
+    # Toggles whether k9s should check for the latest revision from the GitHub repository releases. Default is false.
     skipLatestRevCheck: false
     # When altering kubeconfig or using multiple kube configs, k9s will clean up clusters configurations that are no longer in use. Setting this flag to true will keep k9s from cleaning up inactive cluster configs. Defaults to false.
     keepMissingClusters: false
@@ -431,6 +518,10 @@ You can now override the context portForward default address configuration by se
       sinceSeconds: 300 # => tail the last 5 mins.
       # Toggles log line wrap. Default false
       textWrap: false
+      # Autoscroll in logs will be disabled. Default is false.
+      disableAutoscroll: false
+      # Enable column locking when autoscroll is enabled. Default is false.
+      columnLock: false
       # Toggles log line timestamp info. Default false
       showTime: false
     # Provide shell pod customization when nodeShell feature gate is enabled!
@@ -445,6 +536,13 @@ You can now override the context portForward default address configuration by se
         memory: 100Mi
       # Enable TTY
       tty: true
+      hostPathVolume:
+      - name: docker-socket
+        # Mount the Docker socket into the shell pod
+        mountPath: /var/run/docker.sock
+        # The path on the host to mount
+        hostPath: /var/run/docker.sock
+        readOnly: true
   ```
 
 ---
@@ -492,6 +590,21 @@ k9s:
     nodeShell: true # => Enable this feature gate to make nodeShell available on this cluster
   portForwardAddress: localhost
 ```
+
+### Customizing the Shell Pod
+You can also customize the shell pod by adding a `hostPathVolume` to your shell pod. This allows you to mount a local directory or file into the shell pod. For example, if you want to mount the Docker socket into the shell pod, you can do so as follows:
+```yaml
+k9s:
+  shellPod:
+    hostPathVolume:
+    - name: docker-socket
+      # Mount the Docker socket into the shell pod
+      mountPath: /var/run/docker.sock
+      # The path on the host to mount
+      hostPath: /var/run/docker.sock
+      readOnly: true
+```
+This will mount the Docker socket into the shell pod at `/var/run/docker.sock` and make it read-only. You can also mount any other directory or file in a similar way.
 
 ---
 
@@ -563,6 +676,13 @@ In order to surface hotkeys globally please follow these steps:
 
 ---
 
+## Port Forwarding over websockets
+
+K9s follows `kubectl` feature flag environment variables to enable/disable port-forwarding over websockets. (default enabled in >1.30)
+To disable Websocket support, set `KUBECTL_PORT_FORWARD_WEBSOCKETS=false`
+
+---
+
 ## FastForwards
 
 As of v0.25.0, you can leverage the `FastForwards` feature to tell K9s how to default port-forwards. In situations where you are dealing with multiple containers or containers exposing multiple ports, it can be cumbersome to specify the desired port-forward from the dialog as in most cases, you already know which container/port tuple you desire. For these use cases, you can now annotate your manifests with the following annotations:
@@ -614,13 +734,37 @@ The annotation value must specify a container to forward to as well as a local p
 
 ---
 
-## Resource Custom Columns
+## Custom Views
 
 [SneakCast v0.17.0 on The Beach! - Yup! sound is sucking but what a setting!](https://youtu.be/7S33CNLAofk)
 
 You can change which columns shows up for a given resource via custom views. To surface this feature, you will need to create a new configuration file, namely `$XDG_CONFIG_HOME/k9s/views.yaml`. This file leverages GVR (Group/Version/Resource) to configure the associated table view columns. If no GVR is found for a view the default rendering will take over (ie what we have now). Going wide will add all the remaining columns that are available on the given resource after your custom columns. To boot, you can edit your views config file and tune your resources views live!
 
-> NOTE: This is experimental and will most likely change as we iron this out!
+📢 🎉 As of `release v0.40.0` you can specify json parse expressions to further customize your resources rendering.
+
+The new column syntax is as follows:
+
+> COLUMN_NAME<:json_parse_expression><|column_attributes>
+
+Where `:json_parse_expression` represents an expression to pull a specific snippet out of the resource manifest.
+Similar to `kubectl -o custom-columns` command. This expression is optional.
+
+> IMPORTANT! Columns must be valid YAML strings. Thus if your column definition contains non-alpha chars
+> they must figure with either single/double quotes or escaped via `\`
+
+> NOTE! Be sure to watch k9s logs as any issues with the custom views specification are only surfaced in the logs.
+
+Additionally, you can specify column attributes to further tailor the column rendering.
+To use this you will need to add a `|` indicator followed by your rendering bits.
+You can have one or more of the following attributes:
+
+* `T` -> time column indicator
+* `N` -> number column indicator
+* `W` -> turns on wide column aka only shows while in wide mode. Defaults to the standard resource definition when present.
+* `S` -> Ensures a column is visible and not wide. Overrides `wide` std resource definition if present.
+* `H` -> Hides the column
+* `L` -> Left align (default)
+* `R` -> Right align
 
 Here is a sample views configuration that customize a pods and services views.
 
@@ -630,12 +774,33 @@ views:
   v1/pods:
     columns:
       - AGE
-      - NAMESPACE
+      - NAMESPACE|WR                                     # => 🌚 Specifies the NAMESPACE column to be right aligned and only visible while in wide mode
+      - ZORG:.metadata.labels.fred\.io\.kubernetes\.blee # => 🌚 extract fred.io.kubernetes.blee label into it's own column
+      - BLEE:.metadata.annotations.blee|R                # => 🌚 extract annotation blee into it's own column and right align it
       - NAME
       - IP
       - NODE
       - STATUS
       - READY
+      - MEM/RL|S                                         # => 🌚 Overrides std resource default wide attribute via `S` for `Show`
+      - '%MEM/R|'                                        # => NOTE! column names with non alpha names need to be quoted as columns must be strings!
+
+  v1/pods@fred:                                          # => 🌚 New v0.40.6! Customize columns for a given resource and namespace!
+    columns:
+      - AGE
+      - NAME|WR
+
+  v1/pods@kube*:                                         # => 🌚 New v0.40.6! You can also specify a namespace using a regular expression.
+    columns:
+      - NAME
+      - AGE
+      - LABELS
+
+  cool-kid:                                              # => 🌚 New v0.40.8! You can also reference a specific alias and display a custom view for it
+    columns:
+      - AGE
+      - NAMESPACE|WR
+
   v1/services:
     columns:
       - AGE
@@ -645,16 +810,26 @@ views:
       - CLUSTER-IP
 ```
 
+> 🩻 NOTE: This is experimental and will most likely change as we iron this out!
+
 ---
 
 ## Plugins
 
-K9s allows you to extend your command line and tooling by defining your very own cluster commands via plugins. K9s will look at `$XDG_CONFIG_HOME/k9s/plugins.yaml` to locate all available plugins.
+K9s allows you to extend your command line and tooling by defining your very own cluster commands via plugins.
+Minimally we look at `$XDG_CONFIG_HOME/k9s/plugins.yaml` to locate all available plugins.
+Additionally, K9s will scan the following directories for additional plugins:
+
+* `$XDG_CONFIG_HOME/k9s/plugins`
+* `$XDG_DATA_HOME/k9s/plugins`
+* `$XDG_DATA_DIRS/k9s/plugins`
+
+The plugin file content can be either a single plugin snippet, a collections of snippets or a complete plugins definition (see examples below...).
 
 A plugin is defined as follows:
 
 * Shortcut option represents the key combination a user would type to activate the plugin. Valid values are [a-z], Shift-[A-Z], Ctrl-[A-Z].
-* Override option make that the default action related to the shortcut will be overrided by the plugin
+* Override option make that the default action related to the shortcut will be overridden by the plugin
 * Confirm option (when enabled) lets you see the command that is going to be executed and gives you an option to confirm or prevent execution
 * Description will be printed next to the shortcut in the k9s menu
 * Scopes defines a collection of resources names/short-names for the views associated with the plugin. You can specify `all` to provide this shortcut for all views.
@@ -663,6 +838,87 @@ A plugin is defined as follows:
 * Args specifies the various arguments that should apply to the command above
 * OverwriteOutput boolean option allows plugin developers to provide custom messages on plugin stdout execution. See example in [#2644](https://github.com/derailed/k9s/pull/2644)
 * Dangerous boolean option enables disabling the plugin when read-only mode is set. See [#2604](https://github.com/derailed/k9s/issues/2604)
+* Inputs defines a list of input fields to prompt the user for before executing the plugin (see below)
+
+#### Plugin Inputs
+
+Plugins can define input fields that prompt users for values before execution. This is useful when you need dynamic values like replica counts, environment variables, or profile selections. A maximum of 5 inputs per plugin is allowed.
+
+Each input has the following properties:
+
+* `name` (required) -- the input identifier used to reference the value in args as `$INPUT_<NAME>` (uppercase)
+* `label` -- the label shown to the user in the input dialog
+* `type` (required) -- the input type: `string`, `number`, `bool`, or `dropdown`
+* `required` -- when true, the user must provide a value before the plugin can execute
+* `default` -- a default value pre-filled in the input field (must be a valid option for `dropdown`, `"true"`/`"false"` for `bool`, or a valid number for `number`)
+* `options` -- for `dropdown` type only, defines the list of available choices
+
+Input values are available in plugin args using the format `$INPUT_<NAME>` where `<NAME>` is the uppercase version of the input name.
+
+**Input Types:**
+
+| Type | Description | UI Element |
+|------|-------------|------------|
+| `string` | Free-form text input | Text field |
+| `number` | Numeric input (integers and floats) | Text field with numeric validation |
+| `bool` | Boolean toggle | Checkbox |
+| `dropdown` | Selection from predefined options | Dropdown menu |
+
+**Example:**
+
+```yaml
+plugins:
+  demo-inputs:
+    shortCut: Ctrl-Y
+    description: Demo all input types
+    scopes:
+      - po
+    command: bash
+    background: false
+    args:
+      - -c
+      - >-
+        echo "=== Plugin input demo ===" &&
+        echo "" &&
+        echo "Pod: $NAME" &&
+        echo "Namespace: $NAMESPACE" &&
+        echo "Context: $CONTEXT" &&
+        echo "" &&
+        echo "=== Your inputs ===" &&
+        if [ -n "$INPUT_MESSAGE" ]; then echo "Message: $INPUT_MESSAGE (set)"; else echo "Message: (not set)"; fi &&
+        if [ -n "$INPUT_COUNT" ]; then echo "Count: $INPUT_COUNT (set)"; else echo "Count: (not set)"; fi &&
+        if [ -n "$INPUT_ENABLED" ]; then echo "Enabled: $INPUT_ENABLED (set)"; else echo "Enabled: (not set)"; fi &&
+        if [ -n "$INPUT_ENVIRONMENT" ]; then echo "Environment: $INPUT_ENVIRONMENT (set)"; else echo "Environment: (not set)"; fi &&
+        echo "" &&
+        read -p "Press Enter to return to k9s..."
+    inputs:
+      - name: message
+        label: Enter a message
+        type: string
+        required: true
+        default: hello world
+      - name: count
+        label: Enter a number
+        type: number
+        required: true
+        default: 3
+      - name: enabled
+        label: Enable feature
+        type: bool
+        required: false
+        default: true
+      - name: environment
+        label: Select environment
+        type: dropdown
+        required: true
+        default: staging
+        options:
+          - development
+          - staging
+          - production
+```
+
+For a real-world example of plugin inputs, see [pvc-resize.yaml](plugins/pvc-resize.yaml) which prompts the user for a new PVC size before resizing.
 
 K9s does provide additional environment variables for you to customize your plugins arguments. Currently, the available environment variables are as follows:
 
@@ -683,12 +939,15 @@ K9s does provide additional environment variables for you to customize your plug
 
 Curly braces can be used to embed an environment variable inside another string, or if the column name contains special characters. (e.g. `${NAME}-example` or `${COL-%CPU/L}`)
 
-### Plugin Example
+### Plugin Examples
 
-This defines a plugin for viewing logs on a selected pod using `ctrl-l` as shortcut.
+Define several plugins and host them in a single file. These can leave in the K9s root config so that they are available on any clusters. Additionally, you can define cluster/context specific plugins for your clusters of choice by adding clusterA/contextB/plugins.yaml file.
+
+The following defines a plugin for viewing logs on a selected pod using `ctrl-l` as shortcut.
 
 ```yaml
-#  $XDG_DATA_HOME/k9s/plugins.yaml
+# Define several plugins in a single file in the K9s root configuration
+# $XDG_DATA_HOME/k9s/plugins.yaml
 plugins:
   # Defines a plugin to provide a `ctrl-l` shortcut to tail the logs while in pod view.
   fred:
@@ -710,6 +969,41 @@ plugins:
     - $NAMESPACE
     - --context
     - $CONTEXT
+```
+
+Similarly you can define the plugin above in a directory using either a file per plugin or several plugins per files as follow...
+
+The following defines two plugins namely fred and zorg.
+
+```yaml
+# Multiple plugins in a single file...
+# Note: as of v0.40.9 you can have ad-hoc plugin dirs
+# Loads plugins fred and zorg
+# $XDG_DATA_HOME/k9s/plugins/misc-plugins/blee.yaml
+fred:
+  shortCut: Shift-B
+  description: Bozo
+  scopes:
+  - deploy
+  command: bozo
+
+zorg:
+  shortCut: Shift-Z
+  description: Pod logs
+  scopes:
+  - svc
+  command: zorg
+```
+
+Lastly you can define plugin snippets in their own file. The snippet will be named from the file name. In this case, we define a `bozo` plugin using a plugin snippet.
+
+```yaml
+# $XDG_DATA_HOME/k9s/plugins/schtuff/bozo.yaml
+shortCut: Shift-B
+description: Bozo
+scopes:
+- deploy
+command: bozo
 ```
 
 > NOTE: This is an experimental feature! Options and layout may change in future K9s releases as this feature solidifies.
@@ -887,7 +1181,7 @@ Example: Dracula Skin ;)
 You can style K9s based on your own sense of look and style. Skins are YAML files, that enable a user to change the K9s presentation layer. See this repo `skins` directory for examples.
 You can skin k9s by default by specifying a UI.skin attribute. You can also change K9s skins based on the context you are connecting too.
 In this case, you can specify a skin field on your cluster config aka `skin: dracula` (just the name of the skin file without the extension!) and copy this repo
-`skins/dracula.yaml` to `$XDG_CONFIG_HOME/k9s/skins/` directory.
+`skins/dracula.yaml` to `$XDG_CONFIG_HOME/k9s/skins/` directory. You can also change the skin by setting `K9S_SKIN` in the environment, e.g. `export K9S_SKIN="dracula"`.
 
 In the case where your cluster spans several contexts, you can add a skin context configuration to your context configuration.
 This is a collection of {context_name, skin} tuples (please see example below!)
@@ -897,13 +1191,13 @@ Colors can be defined by name or using a hex representation. Of recent, we've ad
 > NOTE: This is very much an experimental feature at this time, more will be added/modified if this feature has legs so thread accordingly!
 > NOTE: Please see [K9s Skins](https://k9scli.io/topics/skins/) for a list of available colors.
 
-To skin a specific context and provided the file `in_the_navy.yaml` is present in your skins directory.
+To skin a specific context and provided the file `in-the-navy.yaml` is present in your skins directory.
 
 ```yaml
 #  $XDG_DATA_HOME/k9s/clusters/clusterX/contextY/config.yaml
 k9s:
   cluster: clusterX
-  skin: in_the_navy
+  skin: in-the-navy
   readOnly: false
   namespace:
     active: default
@@ -934,10 +1228,12 @@ k9s:
     headless: false
     logoless: false
     crumbsless: false
+    splashless: false
     noIcons: false
+    invert: false
     # Toggles reactive UI. This option provide for watching on disk artifacts changes and update the UI live  Defaults to false.
     reactive: false
-    # By default all contexts wil use the dracula skin unless explicitly overridden in the context config file.
+    # By default all contexts will use the dracula skin unless explicitly overridden in the context config file.
     skin: dracula # => assumes the file skins/dracula.yaml is present in the  $XDG_DATA_HOME/k9s/skins directory
     defaultsToFullScreen: false
   skipLatestRevCheck: false
@@ -958,6 +1254,8 @@ k9s:
     buffer: 5000
     sinceSeconds: -1
     textWrap: false
+    disableAutoscroll: false
+    columnLock: false
     showTime: false
   thresholds:
     cpu:
@@ -969,7 +1267,7 @@ k9s:
 ```
 
 ```yaml
-# $XDG_DATA_HOME/k9s/skins/in_the_navy.yaml
+# $XDG_DATA_HOME/k9s/skins/in-the-navy.yaml
 # Skin InTheNavy!
 k9s:
   # General K9s styles
@@ -996,6 +1294,8 @@ k9s:
     # MenuView attributes and styles.
     menu:
       fgColor: darkblue
+      # Style of menu text. Supported options are "dim" (default), "normal", and "bold"
+      fgStyle: dim
       keyColor: cornflowerblue
       # Used for favorite namespaces
       numKeyColor: cadetblue
@@ -1031,6 +1331,7 @@ k9s:
         fgColor: white
         bgColor: darkblue
         sorterColor: orange
+        selectedSortColumnColor: lightskyblue
     # YAML info styles.
     yaml:
       keyColor: steelblue
@@ -1081,11 +1382,11 @@ to make this project a reality!
 
 ## Meet The Core Team!
 
+If you have chops in GO and K8s and would like to offer your time to help maintain and enhance this project, please reach out to me.
+
 * [Fernand Galiana](https://github.com/derailed)
   * <img src="assets/mail.png" width="16" height="auto" alt="email"/>  fernand@imhotep.io
   * <img src="assets/twitter.png" width="16" height="auto" alt="twitter"/> [@kitesurfer](https://twitter.com/kitesurfer?lang=en)
-
-* [Aleksei Romanenko](https://github.com/slimus)
 
 We always enjoy hearing from folks who benefit from our work!
 
@@ -1097,4 +1398,4 @@ We always enjoy hearing from folks who benefit from our work!
 
 ---
 
-<img src="assets/imhotep_logo.png" width="32" height="auto" alt="Imhotep"/> &nbsp;© 2023 Imhotep Software LLC. All materials licensed under [Apache v2.0](http://www.apache.org/licenses/LICENSE-2.0)
+<img src="assets/imhotep_logo.png" width="32" height="auto" alt="Imhotep"/> &nbsp;© 2026 Imhotep Software LLC. All materials licensed under [Apache v2.0](http://www.apache.org/licenses/LICENSE-2.0)

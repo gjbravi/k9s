@@ -66,6 +66,7 @@ k9s:
         fgColor: white
         bgColor: black
         sorterColor: aqua
+        selectedSortColumnColor: lightskyblue
     xray:
       fgColor: aqua
       bgColor: black
@@ -76,6 +77,8 @@ k9s:
       bgColor: black
       dialBgColor: black
       chartBgColor: black
+      focusFgColor: white
+      focusBgColor: orange
       defaultDialColors:
       - palegreen
       - orangered

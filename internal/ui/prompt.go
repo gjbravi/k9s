@@ -6,6 +6,7 @@ package ui
 import (
 	"fmt"
 	"sync"
+	"unicode"
 
 	"github.com/derailed/k9s/internal/config"
 	"github.com/derailed/k9s/internal/model"
@@ -14,7 +15,7 @@ import (
 )
 
 const (
-	defaultPrompt = "%c> [::b]%s"
+	defaultPrompt = "%c%c [::b]%s"
 	defaultSpacer = 4
 )
 
@@ -41,7 +42,7 @@ type Suggester interface {
 // PromptModel represents a prompt buffer.
 type PromptModel interface {
 	// SetText sets the model text.
-	SetText(txt, sug string)
+	SetText(txt, sug string, clear bool)
 
 	// GetText returns the current text.
 	GetText() string
@@ -81,6 +82,7 @@ type Prompt struct {
 	app     *App
 	noIcons bool
 	icon    rune
+	prefix  rune
 	styles  *config.Styles
 	model   PromptModel
 	spacer  int
@@ -104,15 +106,13 @@ func NewPrompt(app *App, noIcons bool, styles *config.Styles) *Prompt {
 	p.SetDynamicColors(true)
 	p.SetBorder(true)
 	p.SetBorderPadding(0, 0, 1, 1)
-	p.SetBackgroundColor(styles.K9s.Prompt.BgColor.Color())
-	p.SetTextColor(styles.K9s.Prompt.FgColor.Color())
 	styles.AddListener(&p)
 	p.SetInputCapture(p.keyboard)
 
 	return &p
 }
 
-// SendKey sends an keyboard event (testing only!).
+// SendKey sends a keyboard event (testing only!).
 func (p *Prompt) SendKey(evt *tcell.EventKey) {
 	p.keyboard(evt)
 }
@@ -147,20 +147,26 @@ func (p *Prompt) keyboard(evt *tcell.EventKey) *tcell.EventKey {
 		return evt
 	}
 
-	// nolint:exhaustive
+	//nolint:exhaustive
 	switch evt.Key() {
 	case tcell.KeyBackspace2, tcell.KeyBackspace, tcell.KeyDelete:
 		p.model.Delete()
 
 	case tcell.KeyRune:
-		p.model.Add(evt.Rune())
+		r := evt.Rune()
+		// Filter out control characters and non-printable runes that may come from
+		// terminal escape sequences (e.g., cursor position reports like [7;15R)
+		// Only accept printable characters for user input
+		if isValidInputRune(r) {
+			p.model.Add(r)
+		}
 
 	case tcell.KeyEscape:
 		p.model.ClearText(true)
 		p.model.SetActive(false)
 
 	case tcell.KeyEnter, tcell.KeyCtrlE:
-		p.model.SetText(p.model.GetText(), "")
+		p.model.SetText(p.model.GetText(), "", true)
 		p.model.SetActive(false)
 
 	case tcell.KeyCtrlW, tcell.KeyCtrlU:
@@ -168,17 +174,17 @@ func (p *Prompt) keyboard(evt *tcell.EventKey) *tcell.EventKey {
 
 	case tcell.KeyUp:
 		if s, ok := m.NextSuggestion(); ok {
-			p.model.SetText(p.model.GetText(), s)
+			p.model.SetText(p.model.GetText(), s, true)
 		}
 
 	case tcell.KeyDown:
 		if s, ok := m.PrevSuggestion(); ok {
-			p.model.SetText(p.model.GetText(), s)
+			p.model.SetText(p.model.GetText(), s, true)
 		}
 
 	case tcell.KeyTab, tcell.KeyRight, tcell.KeyCtrlF:
 		if s, ok := m.CurrentSuggestion(); ok {
-			p.model.SetText(p.model.GetText()+s, "")
+			p.model.SetText(p.model.GetText()+s, "", true)
 			m.ClearSuggestions()
 		}
 	}
@@ -232,11 +238,11 @@ func (p *Prompt) write(text, suggest string) {
 	defer p.mx.Unlock()
 
 	p.SetCursorIndex(p.spacer + len(text))
-	txt := text
 	if suggest != "" {
-		txt += fmt.Sprintf("[%s::-]%s", p.styles.Prompt().SuggestColor, suggest)
+		text += fmt.Sprintf("[%s::-]%s", p.styles.Prompt().SuggestColor, suggest)
 	}
-	fmt.Fprintf(p, defaultPrompt, p.icon, txt)
+	p.StylesChanged(p.styles)
+	_, _ = fmt.Fprintf(p, defaultPrompt, p.icon, p.prefix, text)
 }
 
 // ----------------------------------------------------------------------------
@@ -264,7 +270,7 @@ func (p *Prompt) BufferActive(activate bool, kind model.BufferKind) {
 		p.SetBorder(true)
 		p.SetTextColor(p.styles.FgColor())
 		p.SetBorderColor(p.colorFor(kind))
-		p.icon = p.iconFor(kind)
+		p.icon, p.prefix = p.prefixesFor(kind)
 		p.activate()
 		return
 	}
@@ -275,25 +281,39 @@ func (p *Prompt) BufferActive(activate bool, kind model.BufferKind) {
 	p.Clear()
 }
 
-func (p *Prompt) iconFor(k model.BufferKind) rune {
-	if p.noIcons {
-		return ' '
-	}
+func (p *Prompt) prefixesFor(k model.BufferKind) (ic, prefix rune) {
+	defer func() {
+		if p.noIcons {
+			ic = ' '
+		}
+	}()
 
-	// nolint:exhaustive
+	//nolint:exhaustive
 	switch k {
 	case model.CommandBuffer:
-		return '🐶'
+		return '🐶', '>'
 	default:
-		return '🐩'
+		return '🐩', '/'
 	}
 }
 
 // ----------------------------------------------------------------------------
 // Helpers...
 
+// isValidInputRune checks if a rune is valid for user input.
+// It filters out control characters and non-printable characters that may
+// come from terminal escape sequences (e.g., cursor position reports).
+func isValidInputRune(r rune) bool {
+	// Reject control characters (0x00-0x1F, 0x7F) except for common whitespace
+	if unicode.IsControl(r) && r != '\t' && r != '\n' && r != '\r' {
+		return false
+	}
+	// Only accept printable characters
+	return unicode.IsPrint(r) || unicode.IsSpace(r)
+}
+
 func (p *Prompt) colorFor(k model.BufferKind) tcell.Color {
-	// nolint:exhaustive
+	//nolint:exhaustive
 	switch k {
 	case model.CommandBuffer:
 		return p.styles.Prompt().Border.CommandColor.Color()

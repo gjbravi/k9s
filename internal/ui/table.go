@@ -6,6 +6,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/derailed/k9s/internal"
@@ -14,12 +15,10 @@ import (
 	"github.com/derailed/k9s/internal/model"
 	"github.com/derailed/k9s/internal/model1"
 	"github.com/derailed/k9s/internal/render"
+	"github.com/derailed/k9s/internal/slogs"
 	"github.com/derailed/k9s/internal/vul"
 	"github.com/derailed/tcell/v2"
 	"github.com/derailed/tview"
-	"github.com/rs/zerolog/log"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 const maxTruncate = 50
@@ -37,38 +36,67 @@ type (
 
 // Table represents tabular data.
 type Table struct {
-	gvr        client.GVR
-	sortCol    model1.SortColumn
-	manualSort bool
-	Path       string
-	Extras     string
 	*SelectTable
-	actions     *KeyActions
-	cmdBuff     *model.FishBuff
-	styles      *config.Styles
-	viewSetting *config.ViewSetting
-	colorerFn   model1.ColorerFunc
-	decorateFn  DecorateFunc
-	wide        bool
-	toast       bool
-	hasMetrics  bool
-	ctx         context.Context
-	mx          sync.RWMutex
+	gvr            *client.GVR
+	sortCol        model1.SortColumn
+	selectedColIdx int
+	manualSort     bool
+	Path           string
+	Extras         string
+	actions        *KeyActions
+	cmdBuff        *model.FishBuff
+	styles         *config.Styles
+	viewSetting    *config.ViewSetting
+	colorerFn      model1.ColorerFunc
+	decorateFn     DecorateFunc
+	wide           bool
+	toast          bool
+	hasMetrics     bool
+	ctx            context.Context
+	mx             sync.RWMutex
+	readOnly       bool
+	noIcon         bool
+	fullGVR        bool
 }
 
 // NewTable returns a new table view.
-func NewTable(gvr client.GVR) *Table {
+func NewTable(gvr *client.GVR) *Table {
 	return &Table{
 		SelectTable: &SelectTable{
 			Table: tview.NewTable(),
 			model: model.NewTable(gvr),
 			marks: make(map[string]struct{}),
 		},
+		ctx:     context.Background(),
 		gvr:     gvr,
 		actions: NewKeyActions(),
 		cmdBuff: model.NewFishBuff('/', model.FilterBuffer),
 		sortCol: model1.SortColumn{ASC: true},
 	}
+}
+
+// SetFullGVR toggles full GVR title display.
+func (t *Table) SetFullGVR(b bool) {
+	t.mx.Lock()
+	defer t.mx.Unlock()
+
+	t.fullGVR = b
+}
+
+// SetNoIcon toggles no icon mode.
+func (t *Table) SetNoIcon(b bool) {
+	t.mx.Lock()
+	defer t.mx.Unlock()
+
+	t.noIcon = b
+}
+
+// SetReadOnly toggles read-only mode.
+func (t *Table) SetReadOnly(ro bool) {
+	t.mx.Lock()
+	defer t.mx.Unlock()
+
+	t.readOnly = ro
 }
 
 func (t *Table) setSortCol(sc model1.SortColumn) {
@@ -106,19 +134,154 @@ func (t *Table) getMSort() bool {
 	return t.manualSort
 }
 
-func (t *Table) setVs(vs *config.ViewSetting) bool {
+func (t *Table) getSelectedColIdx() int {
+	t.mx.RLock()
+	defer t.mx.RUnlock()
+
+	return t.selectedColIdx
+}
+
+// initSelectedColumn initializes the selected column index based on current sort column.
+func (t *Table) initSelectedColumn() {
+	data := t.GetFilteredData()
+	if data == nil || data.HeaderCount() == 0 {
+		return
+	}
+
+	sc := t.getSortCol()
+	if sc.Name == "" {
+		t.mx.Lock()
+		t.selectedColIdx = 0
+		t.mx.Unlock()
+		return
+	}
+
+	// Find the visual column index for the current sort column
+	header := data.Header()
+	visibleCol := 0
+	for _, h := range header {
+		if t.shouldExcludeColumn(h) {
+			continue
+		}
+		if h.Name == sc.Name {
+			t.mx.Lock()
+			t.selectedColIdx = visibleCol
+			t.mx.Unlock()
+			return
+		}
+		visibleCol++
+	}
+
+	// If sort column not found in visible columns, default to 0
+	t.mx.Lock()
+	t.selectedColIdx = 0
+	t.mx.Unlock()
+}
+
+// moveSelectedColumn moves the column selection by delta (-1 for left, +1 for right).
+func (t *Table) moveSelectedColumn(delta int) {
+	data := t.GetFilteredData()
+	if data == nil || data.HeaderCount() == 0 {
+		return
+	}
+
+	// Count visible columns
+	visibleCount := 0
+	for _, h := range data.Header() {
+		if !t.shouldExcludeColumn(h) {
+			visibleCount++
+		}
+	}
+
+	if visibleCount == 0 {
+		return
+	}
+
+	t.mx.Lock()
+	t.selectedColIdx += delta
+	// Wrap around
+	if t.selectedColIdx >= visibleCount {
+		t.selectedColIdx = 0
+	} else if t.selectedColIdx < 0 {
+		t.selectedColIdx = visibleCount - 1
+	}
+	t.mx.Unlock()
+
+	t.Refresh()
+}
+
+// SelectNextColumn moves the column selection to the right.
+func (t *Table) SelectNextColumn() {
+	t.moveSelectedColumn(1)
+}
+
+// SelectPrevColumn moves the column selection to the left.
+func (t *Table) SelectPrevColumn() {
+	t.moveSelectedColumn(-1)
+}
+
+// SortSelectedColumn sorts by the currently selected column.
+func (t *Table) SortSelectedColumn() {
+	data := t.GetFilteredData()
+	if data == nil || data.HeaderCount() == 0 {
+		return
+	}
+
+	idx := t.getSelectedColIdx()
+	if idx < 0 {
+		return
+	}
+
+	// Map visual column index to actual header column name
+	// (accounting for hidden columns)
+	header := data.Header()
+	visibleCol := 0
+	var colName string
+	for _, h := range header {
+		if t.shouldExcludeColumn(h) {
+			continue
+		}
+		if visibleCol == idx {
+			colName = h.Name
+			break
+		}
+		visibleCol++
+	}
+
+	if colName == "" {
+		return
+	}
+
+	sc := t.getSortCol()
+
+	// Toggle direction if same column, otherwise default to ascending
+	asc := true
+	if sc.Name == colName {
+		asc = !sc.ASC
+	}
+
+	t.SetSortCol(colName, asc)
+	t.setMSort(true)
+	t.Refresh()
+}
+
+// SetViewSetting sets custom view config is present.
+func (t *Table) SetViewSetting(vs *config.ViewSetting) bool {
 	t.mx.Lock()
 	defer t.mx.Unlock()
 
 	if !t.viewSetting.Equals(vs) {
 		t.viewSetting = vs
+		slog.Debug("Updating custom view setting", slogs.GVR, t.gvr, slogs.ViewSetting, vs)
+		t.model.SetViewSetting(t.ctx, vs)
 		return true
 	}
 
 	return false
 }
 
-func (t *Table) getVs() *config.ViewSetting {
+// GetViewSetting return current view settings if any.
+func (t *Table) GetViewSetting() *config.ViewSetting {
 	t.mx.RLock()
 	defer t.mx.RUnlock()
 
@@ -143,20 +306,23 @@ func (t *Table) Init(ctx context.Context) {
 	t.SetSelectionChangedFunc(t.selectionChanged)
 	t.SetBackgroundColor(tcell.ColorDefault)
 	t.Select(1, 0)
-	if cfg, ok := ctx.Value(internal.KeyViewConfig).(*config.CustomView); ok && cfg != nil {
-		cfg.AddListener(t.GVR().String(), t)
-	}
 	t.styles = mustExtractStyles(ctx)
 	t.StylesChanged(t.styles)
 }
 
 // GVR returns a resource descriptor.
-func (t *Table) GVR() client.GVR { return t.gvr }
+func (t *Table) GVR() *client.GVR { return t.gvr }
 
 // ViewSettingsChanged notifies listener the view configuration changed.
-func (t *Table) ViewSettingsChanged(vs config.ViewSetting) {
-	if t.setVs(&vs) {
-		t.setMSort(false)
+func (t *Table) ViewSettingsChanged(vs *config.ViewSetting) {
+	if t.SetViewSetting(vs) {
+		if vs == nil {
+			if !t.getMSort() && !t.sortCol.IsSet() {
+				t.setSortCol(model1.SortColumn{})
+			}
+		} else {
+			t.setMSort(false)
+		}
 		t.Refresh()
 	}
 }
@@ -217,7 +383,7 @@ func (t *Table) FilterInput(r rune) bool {
 }
 
 // Filter filters out table data.
-func (t *Table) Filter(q string) {
+func (t *Table) Filter(string) {
 	t.ClearSelection()
 	t.doUpdate(t.filtered(t.GetModel().Peek()))
 	t.UpdateTitle()
@@ -230,7 +396,7 @@ func (t *Table) Hints() model.MenuHints {
 }
 
 // ExtraHints returns additional hints.
-func (t *Table) ExtraHints() map[string]string {
+func (*Table) ExtraHints() map[string]string {
 	return nil
 }
 
@@ -264,6 +430,14 @@ func (t *Table) Update(data *model1.TableData, hasMetrics bool) *model1.TableDat
 	return t.doUpdate(t.filtered(data))
 }
 
+func (t *Table) GetNamespace() string {
+	if t.GetModel() != nil {
+		return t.GetModel().GetNamespace()
+	}
+
+	return client.NamespaceAll
+}
+
 func (t *Table) doUpdate(data *model1.TableData) *model1.TableData {
 	if client.IsAllNamespaces(data.GetNamespace()) {
 		t.actions.Add(
@@ -274,10 +448,24 @@ func (t *Table) doUpdate(data *model1.TableData) *model1.TableData {
 		t.actions.Delete(KeyShiftP)
 	}
 
-	cdata, sortCol := data.Customize(t.getVs(), t.getSortCol(), t.getMSort(), true)
-	t.setSortCol(sortCol)
+	oldSortCol := t.getSortCol()
+	t.setSortCol(data.ComputeSortCol(t.GetViewSetting(), t.getSortCol(), t.getMSort()))
 
-	return cdata
+	// Initialize selected column index to match the current sort column
+	// This ensures the highlight starts at the sorted column
+	newSortCol := t.getSortCol()
+	if oldSortCol.Name != newSortCol.Name {
+		t.initSelectedColumn()
+	}
+
+	return data
+}
+
+func (t *Table) shouldExcludeColumn(h model1.HeaderColumn) bool {
+	return (h.Hide || (!t.wide && h.Wide)) ||
+		(h.Name == "NAMESPACE" && !t.GetModel().ClusterWide()) ||
+		(h.MX && !t.hasMetrics) ||
+		(h.VS && vul.ImgScanner == nil)
 }
 
 func (t *Table) UpdateUI(cdata, data *model1.TableData) {
@@ -287,19 +475,9 @@ func (t *Table) UpdateUI(cdata, data *model1.TableData) {
 
 	var col int
 	for _, h := range cdata.Header() {
-		if !t.wide && h.Wide {
+		if t.shouldExcludeColumn(h) {
 			continue
 		}
-		if h.Name == "NAMESPACE" && !t.GetModel().ClusterWide() {
-			continue
-		}
-		if h.MX && !t.hasMetrics {
-			continue
-		}
-		if h.VS && vul.ImgScanner == nil {
-			continue
-		}
-
 		t.AddHeaderCell(col, h)
 		c := t.GetCell(0, col)
 		c.SetBackgroundColor(bg)
@@ -313,7 +491,7 @@ func (t *Table) UpdateUI(cdata, data *model1.TableData) {
 	cdata.RowsRange(func(row int, re model1.RowEvent) bool {
 		ore, ok := data.FindRow(re.Row.ID)
 		if !ok {
-			log.Error().Msgf("unable to find original re: %q", re.Row.ID)
+			slog.Error("Unable to find original row event", slogs.RowID, re.Row.ID)
 			return true
 		}
 		t.buildRow(row+1, re, ore, cdata.Header(), pads)
@@ -336,25 +514,26 @@ func (t *Table) buildRow(r int, re, ore model1.RowEvent, h model1.Header, pads M
 	ns := t.GetModel().GetNamespace()
 	for c, field := range re.Row.Fields {
 		if c >= len(h) {
-			log.Error().Msgf("field/header overflow detected for %q -- %d::%d. Check your mappings!", t.GVR(), c, len(h))
+			slog.Error("Field/header overflow detected. Check your mappings!",
+				slogs.GVR, t.GVR(),
+				slogs.Cell, c,
+				slogs.HeaderSize, len(h),
+			)
 			continue
 		}
-		if !t.wide && h[c].Wide {
-			continue
-		}
-
-		if h[c].Name == "NAMESPACE" && !t.GetModel().ClusterWide() {
-			continue
-		}
-		if h[c].MX && !t.hasMetrics {
-			continue
-		}
-		if h[c].VS && vul.ImgScanner == nil {
+		if t.shouldExcludeColumn(h[c]) {
 			continue
 		}
 
 		if !re.Deltas.IsBlank() && !h.IsTimeCol(c) {
-			field += Deltas(re.Deltas[c], field)
+			var old string
+			if c < len(ore.Deltas) {
+				old = ore.Deltas[c]
+			}
+			if c < len(re.Deltas) {
+				old = re.Deltas[c]
+			}
+			field += Deltas(old, field)
 		}
 
 		if h[c].Decorator != nil {
@@ -382,7 +561,7 @@ func (t *Table) buildRow(r int, re, ore model1.RowEvent, h model1.Header, pads M
 
 // SortColCmd designates a sorted column.
 func (t *Table) SortColCmd(name string, asc bool) func(evt *tcell.EventKey) *tcell.EventKey {
-	return func(evt *tcell.EventKey) *tcell.EventKey {
+	return func(*tcell.EventKey) *tcell.EventKey {
 		sc := t.getSortCol()
 		sc.ASC = !sc.ASC
 		if sc.Name != name {
@@ -391,13 +570,17 @@ func (t *Table) SortColCmd(name string, asc bool) func(evt *tcell.EventKey) *tce
 		sc.Name = name
 		t.setSortCol(sc)
 		t.setMSort(true)
+
+		// Sync selected column index with the new sort column
+		t.initSelectedColumn()
+
 		t.Refresh()
 		return nil
 	}
 }
 
 // SortInvertCmd reverses sorting order.
-func (t *Table) SortInvertCmd(evt *tcell.EventKey) *tcell.EventKey {
+func (t *Table) SortInvertCmd(*tcell.EventKey) *tcell.EventKey {
 	t.toggleSortCol()
 	t.Refresh()
 
@@ -416,7 +599,6 @@ func (t *Table) Refresh() {
 	if data.HeaderCount() == 0 {
 		return
 	}
-	// BOZO!! Really want to tell model reload now. Refactor!
 	cdata := t.Update(data, t.hasMetrics)
 	t.UpdateUI(cdata, data)
 }
@@ -449,8 +631,11 @@ func (t *Table) NameColIndex() int {
 func (t *Table) AddHeaderCell(col int, h model1.HeaderColumn) {
 	sc := t.getSortCol()
 	sortCol := h.Name == sc.Name
-	c := tview.NewTableCell(sortIndicator(sortCol, sc.ASC, t.styles.Table(), h.Name))
+	selectedCol := col == t.getSelectedColIdx()
+	styles := t.styles.Table()
+	c := tview.NewTableCell(columnIndicator(sortCol, selectedCol, sc.ASC, &styles, h.Name))
 	c.SetExpansion(1)
+	c.SetSelectable(false)
 	c.SetAlign(h.Align)
 	t.SetCell(0, col, c)
 }
@@ -471,7 +656,7 @@ func (t *Table) CmdBuff() *model.FishBuff {
 func (t *Table) ShowDeleted() {
 	r, _ := t.GetSelection()
 	cols := t.GetColumnCount()
-	for x := 0; x < cols; x++ {
+	for x := range cols {
 		t.GetCell(r, x).SetAttributes(tcell.AttrDim)
 	}
 }
@@ -487,7 +672,6 @@ func (t *Table) styleTitle() string {
 		rc--
 	}
 
-	base := cases.Title(language.Und, cases.NoLower).String(t.gvr.R())
 	ns := t.GetModel().GetNamespace()
 	if client.IsClusterWide(ns) || ns == client.NotNamespaced {
 		ns = client.NamespaceAll
@@ -504,23 +688,47 @@ func (t *Table) styleTitle() string {
 	if t.Extras != "" {
 		ns = t.Extras
 	}
-	var title string
+
+	resource := t.gvr.R()
+	if t.fullGVR {
+		resource = t.gvr.String()
+	}
+
+	var (
+		title  string
+		styles = t.styles.Frame()
+	)
 	if ns == client.ClusterScope {
-		title = SkinTitle(fmt.Sprintf(TitleFmt, base, render.AsThousands(rc)), t.styles.Frame())
+		title = SkinTitle(fmt.Sprintf(TitleFmt, resource, render.AsThousands(rc)), &styles)
 	} else {
-		title = SkinTitle(fmt.Sprintf(NSTitleFmt, base, ns, render.AsThousands(rc)), t.styles.Frame())
+		title = SkinTitle(fmt.Sprintf(NSTitleFmt, resource, ns, render.AsThousands(rc)), &styles)
 	}
 
 	buff := t.cmdBuff.GetText()
 	if internal.IsLabelSelector(buff) {
-		buff = render.Truncate(TrimLabelSelector(buff), maxTruncate)
-	} else if l := t.GetModel().GetLabelFilter(); l != "" {
-		buff = render.Truncate(l, maxTruncate)
+		if sel, err := ExtractLabelSelector(buff); err == nil {
+			buff = render.Truncate(sel.String(), maxTruncate)
+		}
+	} else if l := t.GetModel().GetLabelSelector(); l != nil && !l.Empty() {
+		buff = render.Truncate(l.String(), maxTruncate)
+	} else if buff != "" {
+		buff = render.Truncate(buff, maxTruncate)
 	}
-
 	if buff == "" {
 		return title
 	}
 
-	return title + SkinTitle(fmt.Sprintf(SearchFmt, buff), t.styles.Frame())
+	return title + SkinTitle(fmt.Sprintf(SearchFmt, buff), &styles)
+}
+
+// ROIndicator returns an icon showing whether the session is in readonly mode or not.
+func ROIndicator(ro, noIC bool) string {
+	switch {
+	case noIC:
+		return ""
+	case ro:
+		return lockedIC
+	default:
+		return unlockedIC
+	}
 }
