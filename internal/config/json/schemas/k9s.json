@@ -112,6 +112,13 @@
           },
           "required": ["enable"]
         },
+        "crossplane": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enable": { "type": "boolean" }
+          }
+        },
         "logger": {
           "type": "object",
           "additionalProperties": false,

@@ -26,6 +26,8 @@ k9s:
     exclusions:
       namespaces: []
       labels: {}
+  crossplane:
+    enable: false
   logger:
     tail: 200
     buffer: 2000

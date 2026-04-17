@@ -48,6 +48,7 @@ type K9s struct {
 	DisablePodCounting  bool       `json:"disablePodCounting" yaml:"disablePodCounting"`
 	ShellPod            *ShellPod  `json:"shellPod" yaml:"shellPod"`
 	ImageScans          ImageScans `json:"imageScans" yaml:"imageScans"`
+	Crossplane          Crossplane `json:"crossplane" yaml:"crossplane"`
 	Logger              Logger     `json:"logger" yaml:"logger"`
 	Thresholds          Threshold  `json:"thresholds" yaml:"thresholds"`
 	DefaultView         string     `json:"defaultView" yaml:"defaultView"`
@@ -78,6 +79,7 @@ func NewK9s(conn client.Connection, ks data.KubeSettings) *K9s {
 		PortForwardAddress: defaultPFAddress(),
 		ShellPod:           NewShellPod(),
 		ImageScans:         NewImageScans(),
+		Crossplane:         NewCrossplane(),
 		dir:                data.NewDir(AppContextsDir),
 		conn:               conn,
 		ks:                 ks,
@@ -150,6 +152,7 @@ func (k *K9s) Merge(k1 *K9s) {
 	k.ShellPod = k1.ShellPod
 	k.Logger = k1.Logger
 	k.ImageScans = k1.ImageScans
+	k.Crossplane = k1.Crossplane
 	if k1.Thresholds != nil {
 		k.Thresholds = k1.Thresholds
 	}

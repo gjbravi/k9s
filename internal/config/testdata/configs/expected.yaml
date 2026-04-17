@@ -33,6 +33,8 @@ k9s:
     exclusions:
       namespaces: []
       labels: {}
+  crossplane:
+    enable: false
   logger:
     tail: 500
     buffer: 800
