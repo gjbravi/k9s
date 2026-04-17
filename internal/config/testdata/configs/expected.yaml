@@ -33,8 +33,16 @@ k9s:
     exclusions:
       namespaces: []
       labels: {}
-  crossplane:
+  resourceTree:
     enable: false
+    providers:
+      crossplane:
+        enable: false
+      argocd:
+        enable: false
+        expandChildApps: true
+      ownerRef:
+        enable: false
   logger:
     tail: 500
     buffer: 800

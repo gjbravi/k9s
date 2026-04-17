@@ -46,12 +46,12 @@ type K9s struct {
 	UI                  UI         `json:"ui" yaml:"ui"`
 	SkipLatestRevCheck  bool       `json:"skipLatestRevCheck" yaml:"skipLatestRevCheck"`
 	DisablePodCounting  bool       `json:"disablePodCounting" yaml:"disablePodCounting"`
-	ShellPod            *ShellPod  `json:"shellPod" yaml:"shellPod"`
-	ImageScans          ImageScans `json:"imageScans" yaml:"imageScans"`
-	Crossplane          Crossplane `json:"crossplane" yaml:"crossplane"`
-	Logger              Logger     `json:"logger" yaml:"logger"`
-	Thresholds          Threshold  `json:"thresholds" yaml:"thresholds"`
-	DefaultView         string     `json:"defaultView" yaml:"defaultView"`
+	ShellPod            *ShellPod    `json:"shellPod" yaml:"shellPod"`
+	ImageScans          ImageScans   `json:"imageScans" yaml:"imageScans"`
+	ResourceTree        ResourceTree `json:"resourceTree" yaml:"resourceTree"`
+	Logger              Logger       `json:"logger" yaml:"logger"`
+	Thresholds          Threshold    `json:"thresholds" yaml:"thresholds"`
+	DefaultView         string       `json:"defaultView" yaml:"defaultView"`
 	manualRefreshRate   float32
 	manualReadOnly      *bool
 	manualCommand       *string
@@ -79,7 +79,7 @@ func NewK9s(conn client.Connection, ks data.KubeSettings) *K9s {
 		PortForwardAddress: defaultPFAddress(),
 		ShellPod:           NewShellPod(),
 		ImageScans:         NewImageScans(),
-		Crossplane:         NewCrossplane(),
+		ResourceTree:       NewResourceTree(),
 		dir:                data.NewDir(AppContextsDir),
 		conn:               conn,
 		ks:                 ks,
@@ -152,7 +152,7 @@ func (k *K9s) Merge(k1 *K9s) {
 	k.ShellPod = k1.ShellPod
 	k.Logger = k1.Logger
 	k.ImageScans = k1.ImageScans
-	k.Crossplane = k1.Crossplane
+	k.ResourceTree = k1.ResourceTree
 	if k1.Thresholds != nil {
 		k.Thresholds = k1.Thresholds
 	}

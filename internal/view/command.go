@@ -323,7 +323,7 @@ func (c *Command) viewMetaFor(p *cmd.Interpreter) (*client.GVR, *MetaViewer, *cm
 
 	v := MetaViewer{
 		viewerFn: func(gvr *client.GVR) ResourceViewer {
-			return NewCrossplaneTraceExtender(NewScaleExtender(NewOwnerExtender(NewBrowser(gvr))))
+			return NewResourceTreeExtender(NewScaleExtender(NewOwnerExtender(NewBrowser(gvr))))
 		},
 	}
 	if mv, ok := customViewers[gvr]; ok {
