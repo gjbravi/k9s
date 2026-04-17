@@ -222,7 +222,7 @@ func (t *ResourceTree) togglePause(evt *tcell.EventKey, paused bool) *tcell.Even
 	return nil
 }
 
-func (t *ResourceTree) toggleWideCmd(evt *tcell.EventKey) *tcell.EventKey {
+func (t *ResourceTree) toggleWideCmd(_ *tcell.EventKey) *tcell.EventKey {
 	t.wide = !t.wide
 	t.rebuildTable()
 	if t.wide {

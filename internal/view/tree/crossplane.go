@@ -77,7 +77,7 @@ func (p *CrossplaneProvider) buildEntry(f dao.Factory, obj *unstructured.Unstruc
 	compResource := crossplaneCompositionResource(obj.Object)
 
 	statusText := readyReason
-	if message != "" && (synced != "True" || ready != "True") {
+	if message != "" && (synced != conditionTrue || ready != conditionTrue) {
 		statusText = message
 	}
 
@@ -87,7 +87,7 @@ func (p *CrossplaneProvider) buildEntry(f dao.Factory, obj *unstructured.Unstruc
 		Namespace: obj.GetNamespace(),
 		GVR:       gvr,
 		Columns:   []string{compResource, synced, ready, statusText},
-		IsOk:      synced == "True" && ready == "True",
+		IsOk:      synced == conditionTrue && ready == conditionTrue,
 		Raw:       obj,
 	}
 
@@ -160,7 +160,7 @@ func (p *CrossplaneProvider) resolveRefs(f dao.Factory, obj map[string]any) []*N
 	return out
 }
 
-func (p *CrossplaneProvider) resolveSecret(f dao.Factory, obj map[string]any) []*Node {
+func (*CrossplaneProvider) resolveSecret(f dao.Factory, obj map[string]any) []*Node {
 	spec, ok := obj["spec"].(map[string]any)
 	if !ok {
 		return nil
@@ -184,7 +184,7 @@ func (p *CrossplaneProvider) resolveSecret(f dao.Factory, obj map[string]any) []
 		Name:      secretName,
 		Namespace: secretNs,
 		GVR:       client.SecGVR,
-		Columns:   []string{"", "True", "True", "Available"},
+		Columns:   []string{"", conditionTrue, conditionTrue, "Available"},
 		IsOk:      true,
 	}
 	if err != nil {
@@ -280,7 +280,7 @@ func hasCrossplaneConditions(obj map[string]any) bool {
 			continue
 		}
 		t, _ := cond["type"].(string)
-		if t == "Synced" || t == "Ready" {
+		if t == argoSyncSynced || t == conditionReady {
 			return true
 		}
 	}
@@ -306,14 +306,14 @@ func crossplaneConditions(obj map[string]any) (synced, ready, message string) {
 		s, _ := cond["status"].(string)
 		m, _ := cond["message"].(string)
 		switch t {
-		case "Synced":
+		case argoSyncSynced:
 			synced = s
-			if s != "True" && message == "" && m != "" {
+			if s != conditionTrue && message == "" && m != "" {
 				message = m
 			}
-		case "Ready":
+		case conditionReady:
 			ready = s
-			if s != "True" && message == "" && m != "" {
+			if s != conditionTrue && message == "" && m != "" {
 				message = m
 			}
 		}
@@ -335,7 +335,7 @@ func crossplaneReadyReason(obj map[string]any) string {
 		if !ok {
 			continue
 		}
-		if t, _ := cond["type"].(string); t == "Ready" {
+		if t, _ := cond["type"].(string); t == conditionReady {
 			reason, _ := cond["reason"].(string)
 			return reason
 		}

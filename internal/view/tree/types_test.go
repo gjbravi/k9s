@@ -36,7 +36,7 @@ func TestDefaultStatus(t *testing.T) {
 }
 
 func TestNode_FQN(t *testing.T) {
-	assert.Equal(t, "", (*Node)(nil).FQN())
+	assert.Empty(t, (*Node)(nil).FQN())
 	assert.Equal(t, "web", (&Node{Name: "web"}).FQN())
 	assert.Equal(t, "default/web", (&Node{Namespace: "default", Name: "web"}).FQN())
 }

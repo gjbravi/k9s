@@ -160,16 +160,6 @@ func AsUnstructured(o runtime.Object) (*unstructured.Unstructured, bool) {
 	return u, ok
 }
 
-// apiVersionGroup returns the group portion of an apiVersion string
-// ("group/version" → "group", "v1" → "").
-func apiVersionGroup(apiVersion string) string {
-	parts := strings.SplitN(apiVersion, "/", 2)
-	if len(parts) == 1 {
-		return ""
-	}
-	return parts[0]
-}
-
 func hasAnySuffix(s string, suffixes ...string) bool {
 	for _, suf := range suffixes {
 		if strings.HasSuffix(s, suf) {

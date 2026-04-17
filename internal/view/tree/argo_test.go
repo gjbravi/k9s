@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -56,7 +57,7 @@ func TestArgoBuildRootApp_NoChildren(t *testing.T) {
 	app := argoApp("my-app", "argocd", "Synced", "Healthy", "", nil)
 
 	n, err := p.BuildRoot(context.Background(), nil, nil, app)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, n)
 	assert.Equal(t, "Application", n.Kind)
 	assert.Equal(t, "my-app", n.Name)
@@ -90,7 +91,7 @@ func TestArgoBuildRootApp_WithResources(t *testing.T) {
 	app := argoApp("my-app", "argocd", "Synced", "Healthy", "", resources)
 
 	n, err := p.BuildRoot(context.Background(), nil, nil, app)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, n.Children, 2)
 
 	dep := n.Children[0]
@@ -117,7 +118,7 @@ func TestArgoBuildRootAppSet_EmptyStatus(t *testing.T) {
 	}}
 
 	n, err := p.BuildRoot(context.Background(), nil, nil, appSet)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "ApplicationSet", n.Kind)
 	assert.True(t, n.IsOk)
 	assert.Empty(t, n.Children)

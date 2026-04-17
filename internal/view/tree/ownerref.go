@@ -20,6 +20,18 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 )
 
+// Common condition / status / phase strings extracted as constants both for
+// linter happiness (goconst) and to keep them in one place.
+const (
+	conditionTrue   = "True"
+	conditionReady  = "Ready"
+	statusFailed    = "Failed"
+	statusComplete  = "Complete"
+	statusRunning   = "Running"
+	statusSuspended = "Suspended"
+	statusActive    = "Active"
+)
+
 // defaultChildGVRs is the set of namespaced resource kinds the owner-reference
 // walker scans to discover children. It covers the common Kubernetes workload
 // graph (Deployment → ReplicaSet → Pod, StatefulSet → Pod, CronJob → Job →
@@ -112,12 +124,12 @@ func (p *OwnerRefProvider) BuildRoot(ctx context.Context, f dao.Factory, gvr *cl
 	// Cluster-scoped roots aren't supported by the simple per-namespace
 	// scan: returning the root alone is more useful than failing.
 	ns := obj.GetNamespace()
-	root := p.buildNode(obj, gvr)
+	root := buildOwnerRefNode(obj, gvr)
 	if ns == "" {
 		return root, nil
 	}
 
-	idx, err := p.indexNamespace(ctx, f, ns)
+	idx, err := indexNamespace(ctx, f, ns)
 	if err != nil {
 		slog.Warn("ownerref: failed to index namespace", slogs.Namespace, ns, slogs.Error, err)
 		return root, nil
@@ -140,7 +152,7 @@ type ownedResource struct {
 // indexNamespace lists each defaultChildGVR in ns and builds a reverse owner
 // index. Errors on individual GVRs are logged and skipped so a missing CRD
 // (e.g. EndpointSlice on very old clusters) doesn't fail the whole walk.
-func (p *OwnerRefProvider) indexNamespace(_ context.Context, f dao.Factory, ns string) (childIndex, error) {
+func indexNamespace(_ context.Context, f dao.Factory, ns string) (childIndex, error) {
 	if f == nil {
 		return nil, fmt.Errorf("ownerref: nil factory")
 	}
@@ -176,15 +188,15 @@ func (p *OwnerRefProvider) attachChildren(n *Node, parentUID types.UID, idx chil
 		if uid != "" {
 			visited[uid] = true
 		}
-		childNode := p.buildNode(child.obj, child.gvr)
+		childNode := buildOwnerRefNode(child.obj, child.gvr)
 		p.attachChildren(childNode, uid, idx, visited)
 		n.Children = append(n.Children, childNode)
 	}
 }
 
-// buildNode renders an unstructured into a Node with the owner-ref columns
-// (KIND, READY, STATUS, AGE).
-func (p *OwnerRefProvider) buildNode(obj *unstructured.Unstructured, gvr *client.GVR) *Node {
+// buildOwnerRefNode renders an unstructured into a Node with the owner-ref
+// columns (KIND, READY, STATUS, AGE).
+func buildOwnerRefNode(obj *unstructured.Unstructured, gvr *client.GVR) *Node {
 	kind := obj.GetKind()
 	ready := readyColumn(obj)
 	status := statusColumn(obj)
@@ -207,19 +219,19 @@ func readyColumn(obj *unstructured.Unstructured) string {
 	raw := obj.Object
 	switch obj.GetKind() {
 	case "Deployment", "ReplicaSet", "StatefulSet":
-		desired, _ := nestedInt(raw, "spec", "replicas")
-		ready, _ := nestedInt(raw, "status", "readyReplicas")
+		desired := nestedInt(raw, "spec", "replicas")
+		ready := nestedInt(raw, "status", "readyReplicas")
 		return fmt.Sprintf("%d/%d", ready, desired)
 	case "DaemonSet":
-		desired, _ := nestedInt(raw, "status", "desiredNumberScheduled")
-		ready, _ := nestedInt(raw, "status", "numberReady")
+		desired := nestedInt(raw, "status", "desiredNumberScheduled")
+		ready := nestedInt(raw, "status", "numberReady")
 		return fmt.Sprintf("%d/%d", ready, desired)
 	case "Job":
-		desired, _ := nestedInt(raw, "spec", "completions")
+		desired := nestedInt(raw, "spec", "completions")
 		if desired == 0 {
 			desired = 1
 		}
-		succeeded, _ := nestedInt(raw, "status", "succeeded")
+		succeeded := nestedInt(raw, "status", "succeeded")
 		return fmt.Sprintf("%d/%d", succeeded, desired)
 	case "Pod":
 		desired := podContainerCount(raw)
@@ -244,18 +256,18 @@ func statusColumn(obj *unstructured.Unstructured) string {
 			return phase
 		}
 	case "Job":
-		if v, _ := nestedInt(raw, "status", "succeeded"); v > 0 {
-			return "Complete"
+		if v := nestedInt(raw, "status", "succeeded"); v > 0 {
+			return statusComplete
 		}
-		if v, _ := nestedInt(raw, "status", "failed"); v > 0 {
-			return "Failed"
+		if v := nestedInt(raw, "status", "failed"); v > 0 {
+			return statusFailed
 		}
-		return "Running"
+		return statusRunning
 	case "CronJob":
 		if susp, _ := nestedBool(raw, "spec", "suspend"); susp {
-			return "Suspended"
+			return statusSuspended
 		}
-		return "Active"
+		return statusActive
 	}
 	if reason := readyConditionReason(raw); reason != "" {
 		return reason
@@ -274,7 +286,8 @@ func ageColumn(obj *unstructured.Unstructured) string {
 // isHealthy decides the row color: any column flagged StatusError makes the
 // row orange. Pods/workloads with READY a/b where a==b and b>0 are healthy.
 func isHealthy(obj *unstructured.Unstructured, ready, status string) bool {
-	if status == "Failed" || status == "Error" || status == "CrashLoopBackOff" || status == "ImagePullBackOff" {
+	switch status {
+	case statusFailed, "Error", "CrashLoopBackOff", "ImagePullBackOff":
 		return false
 	}
 	if a, b, ok := splitRatio(ready); ok {
@@ -284,36 +297,36 @@ func isHealthy(obj *unstructured.Unstructured, ready, status string) bool {
 		return a == b
 	}
 	if v := readyConditionStatus(obj.Object); v != "" {
-		return v == "True"
+		return v == conditionTrue
 	}
 	return true
 }
 
 // ---- helpers ----
 
-func nestedInt(obj map[string]any, keys ...string) (int64, bool) {
+func nestedInt(obj map[string]any, keys ...string) int64 {
 	v, ok := nested(obj, keys...)
 	if !ok {
-		return 0, false
+		return 0
 	}
 	switch n := v.(type) {
 	case int64:
-		return n, true
+		return n
 	case int:
-		return int64(n), true
+		return int64(n)
 	case float64:
-		return int64(n), true
+		return int64(n)
 	}
-	return 0, false
+	return 0
 }
 
-func nestedBool(obj map[string]any, keys ...string) (bool, bool) {
-	v, ok := nested(obj, keys...)
-	if !ok {
+func nestedBool(obj map[string]any, keys ...string) (value, ok bool) {
+	v, found := nested(obj, keys...)
+	if !found {
 		return false, false
 	}
-	b, ok := v.(bool)
-	return b, ok
+	b, isBool := v.(bool)
+	return b, isBool
 }
 
 func nestedString(obj map[string]any, keys ...string) (string, bool) {
@@ -418,7 +431,7 @@ func readyConditionStatus(obj map[string]any) string {
 		if !ok {
 			continue
 		}
-		if t, _ := m["type"].(string); t == "Ready" {
+		if t, _ := m["type"].(string); t == conditionReady {
 			s, _ := m["status"].(string)
 			return s
 		}
@@ -440,7 +453,7 @@ func readyConditionReason(obj map[string]any) string {
 		if !ok {
 			continue
 		}
-		if t, _ := m["type"].(string); t == "Ready" {
+		if t, _ := m["type"].(string); t == conditionReady {
 			r, _ := m["reason"].(string)
 			return r
 		}

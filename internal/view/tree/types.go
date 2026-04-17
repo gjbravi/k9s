@@ -109,14 +109,14 @@ func DefaultStatus(val string) StatusKind {
 	switch val {
 	case "":
 		return StatusNeutral
-	case "True", "Synced", "Healthy", "Available", "Ready", "Running",
-		"Active", "Bound", "Succeeded", "Established", "Approved":
+	case conditionTrue, argoSyncSynced, argoHealthHealthy, "Available", conditionReady, statusRunning,
+		statusActive, "Bound", "Succeeded", "Established", "Approved":
 		return StatusOk
 	case "False", "OutOfSync", "Degraded", "Missing", "MISSING", "Error",
-		"Failed", "Unknown", "CrashLoopBackOff", "ImagePullBackOff",
+		statusFailed, "Unknown", "CrashLoopBackOff", "ImagePullBackOff",
 		"ErrImagePull", "Stalled", "Lost":
 		return StatusError
-	case "Reconciling", "Progressing", "Pending", "Updating", "Suspended",
+	case "Reconciling", "Progressing", "Pending", "Updating", statusSuspended,
 		"Terminating", "Unschedulable", "ContainerCreating", "Init":
 		return StatusWarn
 	}

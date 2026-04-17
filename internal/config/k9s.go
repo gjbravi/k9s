@@ -34,18 +34,18 @@ var defaultGPUVendors = gpuVendors{
 
 // K9s tracks K9s configuration options.
 type K9s struct {
-	LiveViewAutoRefresh bool       `json:"liveViewAutoRefresh" yaml:"liveViewAutoRefresh"`
-	GPUVendors          gpuVendors `json:"gpuVendors" yaml:"gpuVendors"`
-	ScreenDumpDir       string     `json:"screenDumpDir" yaml:"screenDumpDir,omitempty"`
-	RefreshRate         float32    `json:"refreshRate" yaml:"refreshRate"`
-	APIServerTimeout    string     `json:"apiServerTimeout" yaml:"apiServerTimeout"`
-	MaxConnRetry        int32      `json:"maxConnRetry" yaml:"maxConnRetry"`
-	ReadOnly            bool       `json:"readOnly" yaml:"readOnly"`
-	NoExitOnCtrlC       bool       `json:"noExitOnCtrlC" yaml:"noExitOnCtrlC"`
-	PortForwardAddress  string     `yaml:"portForwardAddress"`
-	UI                  UI         `json:"ui" yaml:"ui"`
-	SkipLatestRevCheck  bool       `json:"skipLatestRevCheck" yaml:"skipLatestRevCheck"`
-	DisablePodCounting  bool       `json:"disablePodCounting" yaml:"disablePodCounting"`
+	LiveViewAutoRefresh bool         `json:"liveViewAutoRefresh" yaml:"liveViewAutoRefresh"`
+	GPUVendors          gpuVendors   `json:"gpuVendors" yaml:"gpuVendors"`
+	ScreenDumpDir       string       `json:"screenDumpDir" yaml:"screenDumpDir,omitempty"`
+	RefreshRate         float32      `json:"refreshRate" yaml:"refreshRate"`
+	APIServerTimeout    string       `json:"apiServerTimeout" yaml:"apiServerTimeout"`
+	MaxConnRetry        int32        `json:"maxConnRetry" yaml:"maxConnRetry"`
+	ReadOnly            bool         `json:"readOnly" yaml:"readOnly"`
+	NoExitOnCtrlC       bool         `json:"noExitOnCtrlC" yaml:"noExitOnCtrlC"`
+	PortForwardAddress  string       `yaml:"portForwardAddress"`
+	UI                  UI           `json:"ui" yaml:"ui"`
+	SkipLatestRevCheck  bool         `json:"skipLatestRevCheck" yaml:"skipLatestRevCheck"`
+	DisablePodCounting  bool         `json:"disablePodCounting" yaml:"disablePodCounting"`
 	ShellPod            *ShellPod    `json:"shellPod" yaml:"shellPod"`
 	ImageScans          ImageScans   `json:"imageScans" yaml:"imageScans"`
 	ResourceTree        ResourceTree `json:"resourceTree" yaml:"resourceTree"`

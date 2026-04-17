@@ -307,7 +307,7 @@ func argoAppSetMessage(obj map[string]any) string {
 			continue
 		}
 		s, _ := cond["status"].(string)
-		if s == "True" {
+		if s == conditionTrue {
 			t, _ := cond["type"].(string)
 			if strings.Contains(strings.ToLower(t), "error") || strings.Contains(strings.ToLower(t), "warning") {
 				m, _ := cond["message"].(string)

@@ -11,6 +11,7 @@ import (
 	"github.com/derailed/k9s/internal/dao"
 	"github.com/derailed/k9s/internal/watch"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,7 +24,7 @@ type fakeFactory struct {
 }
 
 func (*fakeFactory) Client() client.Connection { return nil }
-func (f *fakeFactory) Get(*client.GVR, string, bool, labels.Selector) (runtime.Object, error) {
+func (*fakeFactory) Get(*client.GVR, string, bool, labels.Selector) (runtime.Object, error) {
 	return nil, nil
 }
 func (f *fakeFactory) List(gvr *client.GVR, _ string, _ bool, _ labels.Selector) ([]runtime.Object, error) {
@@ -45,7 +46,10 @@ func mkOwnerRef(uid string) map[string]any {
 	return map[string]any{"uid": uid}
 }
 
-func mkResource(kind, name, ns, uid string, ownerUIDs ...string) *unstructured.Unstructured {
+// defaultTestNS is the namespace fixture used by all owner-ref test resources.
+const defaultTestNS = "default"
+
+func mkResource(kind, name, uid string, ownerUIDs ...string) *unstructured.Unstructured {
 	owners := make([]any, 0, len(ownerUIDs))
 	for _, u := range ownerUIDs {
 		owners = append(owners, mkOwnerRef(u))
@@ -55,7 +59,7 @@ func mkResource(kind, name, ns, uid string, ownerUIDs ...string) *unstructured.U
 		"kind":       kind,
 		"metadata": map[string]any{
 			"name":            name,
-			"namespace":       ns,
+			"namespace":       defaultTestNS,
 			"uid":             uid,
 			"ownerReferences": owners,
 		},
@@ -75,23 +79,23 @@ func TestOwnerRef_BuildRoot_DeploymentTree(t *testing.T) {
 		"status": map[string]any{"readyReplicas": int64(2)},
 	}}
 
-	rs := mkResource("ReplicaSet", "web-abc", "default", "rs-1", "dep-1")
+	rs := mkResource("ReplicaSet", "web-abc", "rs-1", "dep-1")
 	rs.Object["spec"] = map[string]any{"replicas": int64(2)}
 	rs.Object["status"] = map[string]any{"readyReplicas": int64(2)}
 
-	pod1 := mkResource("Pod", "web-abc-1", "default", "pod-1", "rs-1")
+	pod1 := mkResource("Pod", "web-abc-1", "pod-1", "rs-1")
 	pod1.Object["spec"] = map[string]any{"containers": []any{map[string]any{"name": "c"}}}
 	pod1.Object["status"] = map[string]any{
 		"phase":             "Running",
 		"containerStatuses": []any{map[string]any{"ready": true}},
 	}
-	pod2 := mkResource("Pod", "web-abc-2", "default", "pod-2", "rs-1")
+	pod2 := mkResource("Pod", "web-abc-2", "pod-2", "rs-1")
 	pod2.Object["spec"] = map[string]any{"containers": []any{map[string]any{"name": "c"}}}
 	pod2.Object["status"] = map[string]any{
 		"phase":             "Running",
 		"containerStatuses": []any{map[string]any{"ready": true}},
 	}
-	other := mkResource("Pod", "unrelated", "default", "pod-3")
+	other := mkResource("Pod", "unrelated", "pod-3")
 
 	f := &fakeFactory{listings: map[*client.GVR][]runtime.Object{
 		client.NewGVR("apps/v1/replicasets"): {rs},
@@ -100,7 +104,7 @@ func TestOwnerRef_BuildRoot_DeploymentTree(t *testing.T) {
 
 	p := NewOwnerRefProvider()
 	root, err := p.BuildRoot(context.Background(), f, client.NewGVR("apps/v1/deployments"), dep)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	if assert.NotNil(t, root) {
 		assert.Equal(t, "Deployment", root.Kind)
 		assert.Equal(t, "2/2", root.Columns[1])
@@ -142,7 +146,7 @@ func TestOwnerRef_BuildRoot_ClusterScopedReturnsRoot(t *testing.T) {
 	}}
 	p := NewOwnerRefProvider()
 	root, err := p.BuildRoot(context.Background(), &fakeFactory{}, nil, cr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	if assert.NotNil(t, root) {
 		assert.Equal(t, "ClusterRole", root.Kind)
 		assert.Empty(t, root.Children)
