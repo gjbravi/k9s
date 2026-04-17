@@ -112,6 +112,41 @@
           },
           "required": ["enable"]
         },
+        "resourceTree": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enable": { "type": "boolean" },
+            "providers": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "crossplane": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "enable": { "type": "boolean" }
+                  }
+                },
+                "argocd": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "enable": { "type": "boolean" },
+                    "expandChildApps": { "type": "boolean" }
+                  }
+                },
+                "ownerRef": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "enable": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        },
         "logger": {
           "type": "object",
           "additionalProperties": false,
